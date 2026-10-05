@@ -94,6 +94,14 @@ tv_lgnet() {  # on|off
   if [ "$1" = on ]; then
     # send a few, Wi-Fi WoL packets get lost sometimes
     for _ in 1 2 3; do wakeonlan -i "${WOL_BCAST:-255.255.255.255}" "$TV_MAC" >/dev/null 2>&1; sleep 1; done
+    # then switch to the NAS's input, once the TV answers (it takes a few seconds to boot)
+    if [ -n "${TV_INPUT:-}" ]; then
+      local i
+      for i in $(seq 15); do
+        timeout 8 bscpylgtvcommand "$TV_IP" set_input "$TV_INPUT" >/dev/null 2>&1 && { log "  input -> $TV_INPUT"; break; }
+        sleep 2
+      done
+    fi
   else
     bscpylgtvcommand "$TV_IP" power_off >/dev/null 2>&1
   fi
