@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 # Turns the TV off when nobody's home or it's sleep time, back on otherwise.
-# Runs every minute from tv-scheduler.timer. Only acts when the wanted state
-# CHANGES, so turning the TV on/off by hand isn't undone a minute later.
+# `tv-scheduler --loop` (the systemd service) checks every CHECK_EVERY_SEC seconds.
+# Only acts when the wanted state CHANGES, so turning the TV on/off by hand isn't undone.
 set -u
+
+if [ "${1:-}" = "--loop" ]; then
+  while true; do
+    "$0"
+    # shellcheck source=/dev/null
+    sleep "$( . "${TV_SCHED_CONF:-/etc/tv-scheduler.conf}"; echo "${CHECK_EVERY_SEC:-5}" )"
+  done
+fi
 
 CONF="${TV_SCHED_CONF:-/etc/tv-scheduler.conf}"
 STATE_DIR="${TV_SCHED_STATE:-/var/lib/tv-scheduler}"
@@ -69,7 +77,7 @@ is_home() {
   now=$(date +%s)
   someone_connected && echo "$now" > "$STATE_DIR/last_seen"
   last=$(cat "$STATE_DIR/last_seen" 2>/dev/null || echo "$now")  # first run: assume home
-  [ $(( now - last )) -lt $(( AWAY_AFTER_MIN * 60 )) ]
+  [ $(( now - last )) -lt "${AWAY_AFTER_SEC:-$(( ${AWAY_AFTER_MIN:-5} * 60 ))}" ]
 }
 
 # ---------- TV control ----------

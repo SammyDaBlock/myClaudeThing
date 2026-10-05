@@ -1,7 +1,12 @@
 [Unit]
 Description=Turn the TV on/off based on schedule and presence
 After=network-online.target
+Wants=network-online.target
 
 [Service]
-Type=oneshot
-ExecStart=/usr/local/bin/tv-scheduler
+ExecStart=/usr/local/bin/tv-scheduler --loop
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

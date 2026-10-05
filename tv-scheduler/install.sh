@@ -9,11 +9,15 @@ install -m 755 tv-scheduler.sh /usr/local/bin/tv-scheduler
 install -m 755 tv-scheduler-bakalari.sh /usr/local/bin/tv-scheduler-bakalari
 [ -f /etc/tv-scheduler.conf ] || install -m 644 tv-scheduler.conf /etc/tv-scheduler.conf
 [ -f /etc/tv-scheduler.free-dates ] || install -m 644 free-dates.example /etc/tv-scheduler.free-dates
-install -m 644 tv-scheduler.service tv-scheduler.timer tv-scheduler-bakalari.service tv-scheduler-bakalari.timer /etc/systemd/system/
+install -m 644 tv-scheduler.service tv-scheduler-bakalari.service tv-scheduler-bakalari.timer /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now tv-scheduler-bakalari.timer
 systemctl start tv-scheduler-bakalari.service || true
-systemctl enable --now tv-scheduler.timer
+systemctl disable --now tv-scheduler.timer 2>/dev/null || true   # old per-minute timer
+rm -f /etc/systemd/system/tv-scheduler.timer
+systemctl daemon-reload
+systemctl enable --now tv-scheduler.service
+systemctl restart tv-scheduler.service
 echo
 echo "Installed. Config: /etc/tv-scheduler.conf"
 echo "Pair with the TV once (accept the prompt on the TV):  sudo bscpylgtvcommand <TV_IP> get_power_state"
