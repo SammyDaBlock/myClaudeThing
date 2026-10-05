@@ -1,0 +1,7 @@
+# One date or range per line. Lines starting with # are ignored.
+# Czech school year 2026/27 examples, fix to your region's dates:
+2026-10-28
+2026-10-29..2026-10-30
+2026-11-17
+2026-12-23..2027-01-03
+2027-07-01..2027-08-31
