@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh school days from Bakalari a few times a day
+
+[Timer]
+OnBootSec=2min
+OnCalendar=*-*-* 03,12,18:17
+Persistent=true
+
+[Install]
+WantedBy=timers.target

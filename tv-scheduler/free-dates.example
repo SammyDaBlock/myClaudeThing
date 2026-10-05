@@ -1,7 +1,14 @@
-# One date or range per line. Lines starting with # are ignored.
-# Czech school year 2026/27 examples, fix to your region's dates:
-2026-10-28
-2026-10-29..2026-10-30
-2026-11-17
-2026-12-23..2027-01-03
-2027-07-01..2027-08-31
+# Free days (school holidays + public holidays on weekdays). Weekends are free automatically.
+# One date (YYYY-MM-DD) or range (YYYY-MM-DD..YYYY-MM-DD) per line. Lines starting with # are ignored.
+# School year 2026/27, MSMT dates; spring break is for okres Kladno.
+2026-10-28              # státní svátek
+2026-10-29..2026-10-30  # podzimní prázdniny
+2026-11-17              # státní svátek
+2026-12-23..2027-01-03  # vánoční prázdniny
+2027-01-29              # pololetní prázdniny
+2027-02-01..2027-02-07  # jarní prázdniny (okres Kladno)
+2027-03-25              # velikonoční prázdniny
+2027-03-26              # Velký pátek
+2027-03-29              # Velikonoční pondělí
+2027-07-01..2027-08-31  # hlavní prázdniny
+2027-09-28              # státní svátek

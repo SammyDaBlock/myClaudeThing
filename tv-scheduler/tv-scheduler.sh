@@ -29,9 +29,14 @@ is_free_date() {  # $1 = YYYY-MM-DD
   return 1
 }
 
+# Bakalari knows best (holidays, ředitelské volno, ...): use its cached answer when it has this date,
+# otherwise fall back to Mon-Fri minus the free-dates file.
+BAKALARI_CACHE="$STATE_DIR/school-days"
 is_school_day() {  # $1 = date string accepted by `date -d`
-  local dow ymd
+  local dow ymd ans
   dow=$(date -d "$1" +%u); ymd=$(date -d "$1" +%F)
+  ans=$(awk -v d="$ymd" '$1 == d {print $2; exit}' "$BAKALARI_CACHE" 2>/dev/null)
+  [ -n "$ans" ] && { [ "$ans" = school ]; return; }
   [ "$dow" -le 5 ] && ! is_free_date "$ymd"
 }
 
@@ -59,6 +64,8 @@ phone_seen_now() {
       arping -c 2 -w 3 ${iface:+-I "$iface"} "$ip" >/dev/null 2>&1 && return 0
     fi
     ping -c 1 -W 2 "$ip" >/dev/null 2>&1 && return 0
+    # iPhones keep their sync port (62078) open; any TCP answer (open or refused) means it's here
+    timeout 3 bash -c "exec 3<>/dev/tcp/$ip/62078" 2>/dev/null && return 0
     ip neigh show "$ip" 2>/dev/null | grep -qE 'REACHABLE|DELAY' && return 0
   done
   return 1
@@ -84,7 +91,8 @@ tv_cec() {  # on|off
 
 tv_lgnet() {  # on|off
   if [ "$1" = on ]; then
-    wakeonlan "$TV_MAC" >/dev/null 2>&1 || etherwake "$TV_MAC" >/dev/null 2>&1
+    # send a few, Wi-Fi WoL packets get lost sometimes
+    for _ in 1 2 3; do wakeonlan -i "${WOL_BCAST:-255.255.255.255}" "$TV_MAC" >/dev/null 2>&1; sleep 1; done
   else
     bscpylgtvcommand "$TV_IP" power_off >/dev/null 2>&1
   fi
