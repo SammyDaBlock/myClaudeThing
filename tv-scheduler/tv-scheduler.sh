@@ -56,17 +56,10 @@ is_sleep_time() {
 }
 
 # ---------- presence ----------
-phone_seen_now() {
-  local ip iface
-  for ip in $PHONE_IPS; do
-    if command -v arping >/dev/null; then
-      iface=$(ip route get "$ip" 2>/dev/null | awk '{for(i=1;i<NF;i++) if($i=="dev"){print $(i+1); exit}}')
-      arping -c 2 -w 3 ${iface:+-I "$iface"} "$ip" >/dev/null 2>&1 && return 0
-    fi
-    ping -c 1 -W 2 "$ip" >/dev/null 2>&1 && return 0
-    # iPhones keep their sync port (62078) open; any TCP answer (open or refused) means it's here
-    timeout 3 bash -c "exec 3<>/dev/tcp/$ip/62078" 2>/dev/null && return 0
-    ip neigh show "$ip" 2>/dev/null | grep -qE 'REACHABLE|DELAY' && return 0
+someone_connected() {  # any (not ignored) device associated with the extender AP
+  local mac
+  for mac in $(iw dev "$EXTENDER_IFACE" station dump 2>/dev/null | awk '/^Station/{print tolower($2)}'); do
+    [[ " ${EXTENDER_IGNORE_MACS,,} " == *" $mac "* ]] || return 0
   done
   return 1
 }
@@ -74,7 +67,7 @@ phone_seen_now() {
 is_home() {
   local now last
   now=$(date +%s)
-  phone_seen_now && echo "$now" > "$STATE_DIR/last_seen"
+  someone_connected && echo "$now" > "$STATE_DIR/last_seen"
   last=$(cat "$STATE_DIR/last_seen" 2>/dev/null || echo "$now")  # first run: assume home
   [ $(( now - last )) -lt $(( AWAY_AFTER_MIN * 60 )) ]
 }
