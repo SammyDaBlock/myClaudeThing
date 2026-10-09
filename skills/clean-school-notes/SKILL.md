@@ -16,9 +16,10 @@ Everything goes through the NAS, which reads and writes Sammy's iCloud notes dir
   - `notes info [FOLDER]`: one JSON line per note: `id`, `folder`, `title`, `created`, `modified`, `datum` (the `Datum:` line, or null), `images`, `tables`, `other_attachments`, `locked`.
   - `notes read ID`: one note as Markdown. Images and tables show up as `[attachment: ...]` / `[table]` placeholders.
   - `notes create "School-Notes/<Subject>" --created <ISO> < note.md`: new note from Markdown, with the creation date you give it.
-  - `notes write ID < note.md`: replaces a note's whole text. The old version is saved on the NAS first (`~/nas-browser/config/icloud-notes/backups/`). It refuses notes that have images, tables or files.
+  - `notes write ID < note.md`: replaces a note's whole text (images included, see "Images, tables and files"). The old version is saved on the NAS first (`~/nas-browser/config/icloud-notes/backups/`). It refuses notes that have tables or files.
   - `notes move ID "School-Notes/#ARCHIVE"`: moves a note to another folder, completely unchanged (images, tables and its creation date included). It also logs which subject it came from (`~/nas-browser/config/icloud-notes/moves.jsonl`).
-  - `notes html ID`, `notes files ID DIR`: used by the site sync and by step 7c.
+  - `notes files ID DIR`: saves a note's images and files, numbered like `[image N]` in `notes read`.
+  - `notes html ID`: used by the site sync.
 - **Feeding Markdown in:** use a quoted heredoc so nothing gets mangled:
   ```bash
   cat <<'EOF' | ~/icloud-notes/notes create "School-Notes/Dějepis" --created 2026-09-25T12:16:05
@@ -55,12 +56,23 @@ Run `notes folders`. Every folder directly inside `School-Notes` is a subject fo
 
 Use the names exactly as printed (diacritics and capitals must match). If a subject folder shows up that you haven't seen in earlier runs, it's a new subject: process it like the rest and mention it in the report.
 
-## Notes with images or tables
+## Images, tables and files
 
-Notes can contain images, tables and files (PDFs, drawings). The NAS can read them, publish them and move them, but it **can't write them yet**: `notes write` refuses those notes, and `notes create` only makes text. So:
-- **An original with images or tables** (`images` or `tables` > 0 in `notes info`): don't rewrite it and don't build a clean note from it. Leave it where it is and list it in the report under "needs the Mac". Exception: if its text is pure classroom chatter and the image is just a photo of the board, you can still make a clean text note from what you can read, but only when Sammy asked for that.
-- **A clean note with images or tables** that a new topic should be merged into: don't merge into it. Make the merged content a separate note (`<topic> (pokračování)`) and mention it in the report.
-- Photo-only notes like `F2=` in Fyzika: leave them alone, mention them in the report.
+Notes can contain images, tables and files (PDFs, drawings).
+
+**Images work.** `notes read` shows each one as `[image N]` at its spot in the text. To carry images into a clean note:
+1. Clear the folder and save the original's images: `rm -rf ~/nas-browser/config/icloud-notes/tmp && mkdir -p ~/nas-browser/config/icloud-notes/tmp`, then `notes files ID /config/icloud-notes/tmp`. Each `[image N]` becomes `/config/icloud-notes/tmp/NN-<name>` (`[image 2]` -> `02-...`). If you merge several originals, save each one's images into its own subfolder (`/config/icloud-notes/tmp/a`, `/b`, ...) so the numbers don't clash.
+2. In the clean note's Markdown, put each image on its own line, right under the text it illustrates (usually where it was relative to that text), keeping their original order: `![](/config/icloud-notes/tmp/02-img1.png)`.
+3. `notes create` / `notes write` upload the images and place them. TIFFs and other formats get turned into PNG on the way.
+4. Check: `notes read` the new note and count the `[image N]` lines. It must have as many images as the originals had (minus any you left out on purpose, like a duplicate photo). Never end up with fewer images than the original without saying so in the report.
+5. Delete the tmp folder when the run is done.
+
+`notes write` on a note that already has images replaces them too: save them with `notes files` first and put them back in the new Markdown, or they're gone from that note (the old version stays in the backup on the NAS).
+
+**Tables and files don't work yet.** `notes write` refuses notes with a table or a file (PDF, drawing), and `notes create` can't make them. So:
+- **An original with a table or file** (`tables` > 0 or `other_attachments` in `notes info`): don't build a clean note from it. Leave it where it is and list it in the report under "needs the Mac".
+- **A clean note with a table or file** that a new topic should be merged into: don't merge into it. Make the merged content a separate note (`<topic> (pokračování)`) and mention it in the report.
+- Photo-only notes like `F2=` in Fyzika (a `com.apple.paper` drawing): leave them alone, mention them in the report.
 
 ## Lesson dates (the `Datum:` line)
 
@@ -108,8 +120,8 @@ Also check the site (on the NAS):
 
 ### 2. Decide what needs work
 - **Messy notes** (typos, half sentences, no structure, several topics mashed together, lesson dates in the text, raw `transcript:` / `Speaker 1:` speech-to-text dumps, no `Datum:` line): these get cleaned.
-- **Already clean notes** (has a `Datum:` line, headings, bullet points, one topic): leave them, but they count as the home for their topic when merging. Small fixes that need no archiving, done with `notes write` (text-only notes only): a missing `Datum:` line, or missing empty lines before section headings.
-- **Images or tables:** see "Notes with images or tables".
+- **Already clean notes** (has a `Datum:` line, headings, bullet points, one topic): leave them, but they count as the home for their topic when merging. Small fixes that need no archiving, done with `notes write`: a missing `Datum:` line, or missing empty lines before section headings (put its images back, see "Images, tables and files").
+- **Images, tables, files:** see "Images, tables and files".
 
 Even if nothing needs cleaning, always run steps 7 (site sync), 7c (materials) and 8 (tests and homework).
 
@@ -141,10 +153,10 @@ Classmate submissions from the inbox are NOT merged in on your own: they can be 
 ### 5. Write the notes
 Work through originals oldest first. For each topic:
 1. **Write the clean version first, then archive.** Never move an original before its content is safely in a clean note (created or updated, and read back), so nothing can get lost.
-   - Topic already has a clean text-only note: `notes write` that note with the merged content.
+   - Topic already has a clean note: `notes write` that note with the merged content (its own images and the originals' images included).
    - Otherwise: `notes create "School-Notes/<Subject>" --created <original's created>` (see "Order by date created").
 2. **Then move every original that went into it** to `#ARCHIVE` with `notes move ID "School-Notes/#ARCHIVE"`. The original stays exactly as it was (images included), so there is no copy to make and nothing for Sammy to delete by hand.
-   - **Same name already in `#ARCHIVE`?** The private backup is keyed by note name, so two archived notes with the same name would overwrite each other there. Check `notes info "#ARCHIVE"` first. If the name is taken and the original is text-only, rename it before moving: `notes read` it, change only its first line to `<name> (2)` (or `(3)`, ...), `notes write` it back unchanged otherwise, then move it. If it has images or tables, move it anyway and mention it in the report.
+   - **Same name already in `#ARCHIVE`?** The private backup is keyed by note name, so two archived notes with the same name would overwrite each other there. Check `notes info "#ARCHIVE"` first. If the name is taken, rename the original before moving: `notes read` it (and `notes files` its images), change only its first line to `<name> (2)` (or `(3)`, ...), `notes write` it back otherwise unchanged with its images in place, then move it. If it has a table or file, move it anyway and mention it in the report.
 3. **Names:** a new clean note's name (its first line) must not match any other note in that folder.
 
 Clean note format (Markdown, which `notes create` / `notes write` turn into real Apple Notes formatting):
@@ -164,10 +176,11 @@ Clean note format (Markdown, which `notes create` / `notes write` turn into real
 - The first line is the title (`# ...`), with no lesson date. The `*Datum: ...*` line comes right after it.
 - One empty line before every section heading (`##`), except a heading that sits directly under the title and date line.
 - Only one empty line per gap, and no empty lines at the very end.
-- What works: `#`, `##`, `###`, `- ` bullets, `1. ` numbered lists, `- [ ] ` / `- [x] ` checklists, `**bold**`, `*italic*`, `~~strike~~`, `[text](https://...)`. Nothing else (no tables, no images, no code blocks, no `>` quotes).
+- Images sit on their own line right after the bullets they belong to: `![](/config/icloud-notes/tmp/01-img1.png)`.
+- What works: `#`, `##`, `###`, `- ` bullets, `1. ` numbered lists, `- [ ] ` / `- [x] ` checklists, `**bold**`, `*italic*`, `~~strike~~`, `[text](https://...)`, `![](image path)` on its own line. Nothing else (no tables, no code blocks, no `>` quotes).
 
 ### 6. Check
-Read back the first clean note you wrote with `notes read ID` and make sure it looks right (title, date line, headings, empty lines before headings, bullets, no raw `**` or `#` symbols in the text) before writing the rest. After moving originals, check with `notes info "#ARCHIVE"` that they arrived.
+Read back the first clean note you wrote with `notes read ID` and make sure it looks right (title, date line, headings, empty lines before headings, bullets, no raw `**` or `#` symbols in the text) before writing the rest. For every note with images, do the image count check from "Images, tables and files". After moving originals, check with `notes info "#ARCHIVE"` that they arrived.
 
 ### 7. Sync the class site and the #ARCHIVE backup
 Run `~/icloud-notes/site-sync`. It compares every clean note (has a `Datum:` line, in a subject folder) with the site, publishes what's missing or changed straight from iCloud (images included), then does the same for `#ARCHIVE` into the private backup. It also runs by itself every 30 minutes, but run it now so this run's changes are live. It takes about 10-30 seconds; if it times out, just run it again (it only redoes what's still missing).
@@ -258,7 +271,7 @@ Format (pipe it into `~/school-notes/publish --tasks`):
 ### 9. Report
 Keep it short, Sammy doesn't like reading much:
 - Per subject: which topic notes were created or updated, in the order they were made, and how many originals went to `#ARCHIVE`.
-- **Needs the Mac:** notes with images or tables that were left alone, photo-only notes, and archived notes whose name clashed in `#ARCHIVE`.
+- **Needs the Mac:** notes with tables or files that were left alone, photo-only/drawing notes, archived notes whose name clashed in `#ARCHIVE`, and any note that ended up with fewer images than its original.
 - New subject folders found this run.
 - One line if something was unreadable, a fact was uncertain, or a date had to be guessed.
 - **Class site:** the final `OK` numbers, how many notes were published, updated, skipped (tables) or hidden, and any that failed.
